@@ -65,6 +65,10 @@ Add to `claude_desktop_config.json`:
 | `delete_item` | Delete an item by ID |
 | `list_locations` | List all locations with item counts |
 
+## Agent Instructions (SOUL.md)
+
+`SOUL.md` contains instructions for a Telegram bot agent that uses this MCP server. It covers the full workflow: receiving photos from users, storing them, analyzing items via an LLM, prompting for locations with similarity detection, de-duplicating against existing inventory, and confirming before recording. Use it as the system prompt for an agent that connects to Telegram and has this MCP server configured.
+
 ## Tests
 
 ```bash
