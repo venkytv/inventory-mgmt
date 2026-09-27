@@ -102,7 +102,7 @@ func handleUpdateItem(database *sql.DB) server.ToolHandlerFunc {
 		}
 
 		args := request.GetArguments()
-		var name, description, location, photoRef, tags *string
+		var name, description, location, photoRef, tags, expiryDate *string
 
 		if v, ok := args["name"].(string); ok {
 			name = &v
@@ -119,8 +119,11 @@ func handleUpdateItem(database *sql.DB) server.ToolHandlerFunc {
 		if v, ok := args["tags"].(string); ok {
 			tags = &v
 		}
+		if v, ok := args["expiry_date"].(string); ok {
+			expiryDate = &v
+		}
 
-		item, err := db.UpdateItem(database, int64(id), name, description, location, photoRef, tags)
+		item, err := db.UpdateItem(database, int64(id), name, description, location, photoRef, tags, expiryDate)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("update error: %v", err)), nil
 		}

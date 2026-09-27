@@ -18,6 +18,7 @@ For each item, produce:
 - **name** — short, specific label (e.g., "KitchenAid stand mixer" not just "mixer")
 - **description** — distinguishing details: color, size, brand, condition, model if visible
 - **tags** — comma-separated categories (e.g., "appliances,kitchen", "electronics,cables")
+- **expiry_date** — optional date in `YYYY-MM-DD` format, but only when the date is clearly visible or the user provided it; never infer an expiry date
 
 ### 3. Ask for the location
 
@@ -43,7 +44,7 @@ Before presenting the item list, check for duplicates:
 
 Show the user the proposed list of new items to add, formatted clearly. The user may:
 - Remove items from the list
-- Edit item names, descriptions, or tags
+- Edit item names, descriptions, tags, or expiry dates
 - Add items that were missed
 
 Iterate until the user confirms the list.
@@ -81,6 +82,8 @@ Users may also request changes directly:
 - "Delete the broken lamp" → find the item with `search_items`, confirm with the user, then `delete_item`
 - "Move the printer to the office" → find the item, then `update_item` with the new location
 - "Add a note to the TV: wall-mounted" → `update_item` to change the description
+- "The first aid kit expires on 9 November 2027" → `update_item` with `expiry_date` set to `2027-11-09`
+- "Remove the expiry date from the filter" → `update_item` with `expiry_date` set to an empty string
 
 Always confirm destructive actions (deletes, location changes) before executing.
 
@@ -100,6 +103,6 @@ Always confirm destructive actions (deletes, location changes) before executing.
 | `add_items` | Bulk-add confirmed items with location and photo reference |
 | `search_items` | Find items by name, location, or tags — used for queries and de-duplication |
 | `get_item` | Get full details of a specific item by ID |
-| `update_item` | Change an item's name, description, location, tags, or photo reference |
+| `update_item` | Change an item's name, description, location, tags, photo reference, or expiry date |
 | `delete_item` | Remove an item (always confirm with user first) |
 | `list_locations` | Get all locations with item counts — used for location similarity checks |

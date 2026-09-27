@@ -39,7 +39,7 @@ func AddItems(db *sql.DB, locationID int64, photoRef string, items []model.NewIt
 	}
 
 	stmt, err := tx.Prepare(
-		"INSERT INTO items (name, description, location_id, photo_ref, tags) VALUES (?, ?, ?, ?, ?)",
+		"INSERT INTO items (name, description, location_id, photo_ref, tags, expiry_date) VALUES (?, ?, ?, ?, ?, ?)",
 	)
 	if err != nil {
 		return nil, fmt.Errorf("preparing insert: %w", err)
@@ -48,7 +48,11 @@ func AddItems(db *sql.DB, locationID int64, photoRef string, items []model.NewIt
 
 	created := make([]model.Item, 0, len(items))
 	for _, item := range items {
-		result, err := stmt.Exec(item.Name, item.Description, locationID, photoRef, item.Tags)
+		expiryDate, err := model.NormalizeExpiryDate(item.ExpiryDate)
+		if err != nil {
+			return nil, fmt.Errorf("validating item %q: %w", item.Name, err)
+		}
+		result, err := stmt.Exec(item.Name, item.Description, locationID, photoRef, item.Tags, expiryDate)
 		if err != nil {
 			return nil, fmt.Errorf("inserting item %q: %w", item.Name, err)
 		}
@@ -61,6 +65,7 @@ func AddItems(db *sql.DB, locationID int64, photoRef string, items []model.NewIt
 			LocationID:  locationID,
 			PhotoRef:    photoRef,
 			Tags:        item.Tags,
+			ExpiryDate:  expiryDate,
 		})
 	}
 
@@ -108,7 +113,7 @@ func SearchItems(db *sql.DB, query, location, tags string, limit int) ([]model.I
 	}
 
 	q := fmt.Sprintf(`
-		SELECT i.id, i.name, i.description, i.location_id, l.name, i.photo_ref, i.tags, i.quantity, i.created_at, i.updated_at
+		SELECT i.id, i.name, i.description, i.location_id, l.name, i.photo_ref, i.tags, i.expiry_date, i.quantity, i.created_at, i.updated_at
 		FROM items i
 		JOIN locations l ON i.location_id = l.id
 		%s
@@ -128,18 +133,19 @@ func SearchItems(db *sql.DB, query, location, tags string, limit int) ([]model.I
 
 func GetItem(db *sql.DB, id int64) (*model.Item, error) {
 	row := db.QueryRow(`
-		SELECT i.id, i.name, i.description, i.location_id, l.name, i.photo_ref, i.tags, i.quantity, i.created_at, i.updated_at
+		SELECT i.id, i.name, i.description, i.location_id, l.name, i.photo_ref, i.tags, i.expiry_date, i.quantity, i.created_at, i.updated_at
 		FROM items i
 		JOIN locations l ON i.location_id = l.id
 		WHERE i.id = ?
 	`, id)
 
 	var item model.Item
+	var expiryDate sql.NullString
 	var quantity int
 	err := row.Scan(
 		&item.ID, &item.Name, &item.Description,
 		&item.LocationID, &item.Location,
-		&item.PhotoRef, &item.Tags, &quantity,
+		&item.PhotoRef, &item.Tags, &expiryDate, &quantity,
 		&item.CreatedAt, &item.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -148,12 +154,20 @@ func GetItem(db *sql.DB, id int64) (*model.Item, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getting item: %w", err)
 	}
+	if expiryDate.Valid {
+		item.ExpiryDate = &expiryDate.String
+	}
 	return &item, nil
 }
 
-func UpdateItem(db *sql.DB, id int64, name, description, location, photoRef, tags *string) (*model.Item, error) {
+func UpdateItem(db *sql.DB, id int64, name, description, location, photoRef, tags, expiryDate *string) (*model.Item, error) {
 	var sets []string
 	var args []any
+
+	normalizedExpiryDate, err := model.NormalizeExpiryDate(expiryDate)
+	if err != nil {
+		return nil, err
+	}
 
 	if name != nil {
 		sets = append(sets, "name = ?")
@@ -178,6 +192,10 @@ func UpdateItem(db *sql.DB, id int64, name, description, location, photoRef, tag
 	if tags != nil {
 		sets = append(sets, "tags = ?")
 		args = append(args, *tags)
+	}
+	if expiryDate != nil {
+		sets = append(sets, "expiry_date = ?")
+		args = append(args, normalizedExpiryDate)
 	}
 
 	if len(sets) == 0 {
@@ -246,15 +264,19 @@ func scanItems(rows *sql.Rows) ([]model.Item, error) {
 	var items []model.Item
 	for rows.Next() {
 		var item model.Item
+		var expiryDate sql.NullString
 		var quantity int
 		err := rows.Scan(
 			&item.ID, &item.Name, &item.Description,
 			&item.LocationID, &item.Location,
-			&item.PhotoRef, &item.Tags, &quantity,
+			&item.PhotoRef, &item.Tags, &expiryDate, &quantity,
 			&item.CreatedAt, &item.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scanning item: %w", err)
+		}
+		if expiryDate.Valid {
+			item.ExpiryDate = &expiryDate.String
 		}
 		items = append(items, item)
 	}

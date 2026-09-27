@@ -31,7 +31,7 @@ func main() {
 
 	s := server.NewMCPServer(
 		"inventory",
-		"0.1.0",
+		"0.2.0",
 		server.WithToolCapabilities(true),
 	)
 	tools.RegisterTools(s, database)

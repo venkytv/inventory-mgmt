@@ -58,12 +58,15 @@ Add to `claude_desktop_config.json`:
 
 | Tool | Description |
 |------|-------------|
-| `add_items` | Add one or more items to inventory (bulk) |
+| `add_items` | Add one or more items, optionally with an expiry date |
 | `search_items` | Search by name, location, or tags |
 | `get_item` | Get full details of an item by ID |
-| `update_item` | Update item fields (partial update) |
+| `update_item` | Update item fields, including setting or clearing an expiry date |
 | `delete_item` | Delete an item by ID |
 | `list_locations` | List all locations with item counts |
+
+Expiry dates are date-only values in `YYYY-MM-DD` format. They are optional on
+each item. Pass an empty `expiry_date` to `update_item` to clear a date.
 
 ## Agent Instructions (SOUL.md)
 

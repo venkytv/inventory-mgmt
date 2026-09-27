@@ -49,10 +49,11 @@ func TestFindOrCreateLocation(t *testing.T) {
 
 func TestAddItems(t *testing.T) {
 	db := testDB(t)
+	expiryDate := "2027-06-30"
 
 	locID, _ := FindOrCreateLocation(db, "Kitchen")
 	items := []model.NewItem{
-		{Name: "Toaster", Description: "2-slot", Tags: "appliances"},
+		{Name: "Toaster", Description: "2-slot", Tags: "appliances", ExpiryDate: &expiryDate},
 		{Name: "Blender", Tags: "appliances,small"},
 	}
 
@@ -71,6 +72,12 @@ func TestAddItems(t *testing.T) {
 	}
 	if created[1].PhotoRef != "photo://kitchen1.jpg" {
 		t.Errorf("expected photo ref, got %s", created[1].PhotoRef)
+	}
+	if created[0].ExpiryDate == nil || *created[0].ExpiryDate != expiryDate {
+		t.Errorf("expected expiry date %s, got %v", expiryDate, created[0].ExpiryDate)
+	}
+	if created[1].ExpiryDate != nil {
+		t.Errorf("expected no expiry date, got %v", created[1].ExpiryDate)
 	}
 }
 
@@ -137,10 +144,11 @@ func TestSearchItems(t *testing.T) {
 
 func TestGetItem(t *testing.T) {
 	db := testDB(t)
+	expiryDate := "2028-01-15"
 
 	locID, _ := FindOrCreateLocation(db, "Kitchen")
 	created, _ := AddItems(db, locID, "photo.jpg", []model.NewItem{
-		{Name: "Toaster", Description: "silver 2-slot"},
+		{Name: "Toaster", Description: "silver 2-slot", ExpiryDate: &expiryDate},
 	})
 
 	item, err := GetItem(db, created[0].ID)
@@ -155,6 +163,9 @@ func TestGetItem(t *testing.T) {
 	}
 	if item.Description != "silver 2-slot" {
 		t.Errorf("expected description, got %s", item.Description)
+	}
+	if item.ExpiryDate == nil || *item.ExpiryDate != expiryDate {
+		t.Errorf("expected expiry date %s, got %v", expiryDate, item.ExpiryDate)
 	}
 
 	// Non-existent ID
@@ -177,7 +188,7 @@ func TestUpdateItem(t *testing.T) {
 
 	newName := "Super Toaster"
 	newLoc := "Garage"
-	updated, err := UpdateItem(db, created[0].ID, &newName, nil, &newLoc, nil, nil)
+	updated, err := UpdateItem(db, created[0].ID, &newName, nil, &newLoc, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("update item: %v", err)
 	}
@@ -195,12 +206,50 @@ func TestUpdateItem(t *testing.T) {
 	}
 
 	// Update nonexistent
-	updated, err = UpdateItem(db, 9999, &newName, nil, nil, nil, nil)
+	updated, err = UpdateItem(db, 9999, &newName, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("update nonexistent: %v", err)
 	}
 	if updated != nil {
 		t.Error("expected nil for nonexistent item update")
+	}
+}
+
+func TestUpdateItemExpiryDate(t *testing.T) {
+	database := testDB(t)
+
+	locID, _ := FindOrCreateLocation(database, "Bathroom")
+	created, _ := AddItems(database, locID, "", []model.NewItem{{Name: "First aid kit"}})
+	expiryDate := "2027-11-09"
+
+	updated, err := UpdateItem(database, created[0].ID, nil, nil, nil, nil, nil, &expiryDate)
+	if err != nil {
+		t.Fatalf("setting expiry date: %v", err)
+	}
+	if updated.ExpiryDate == nil || *updated.ExpiryDate != expiryDate {
+		t.Errorf("expected expiry date %s, got %v", expiryDate, updated.ExpiryDate)
+	}
+
+	clearExpiryDate := ""
+	updated, err = UpdateItem(database, created[0].ID, nil, nil, nil, nil, nil, &clearExpiryDate)
+	if err != nil {
+		t.Fatalf("clearing expiry date: %v", err)
+	}
+	if updated.ExpiryDate != nil {
+		t.Errorf("expected expiry date to be cleared, got %v", updated.ExpiryDate)
+	}
+}
+
+func TestRejectsInvalidExpiryDate(t *testing.T) {
+	database := testDB(t)
+	locID, _ := FindOrCreateLocation(database, "Bathroom")
+	invalidExpiryDate := "2027-02-29"
+
+	_, err := AddItems(database, locID, "", []model.NewItem{
+		{Name: "First aid kit", ExpiryDate: &invalidExpiryDate},
+	})
+	if err == nil {
+		t.Fatal("expected invalid expiry date to be rejected")
 	}
 }
 
